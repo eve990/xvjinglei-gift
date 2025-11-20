@@ -7,212 +7,81 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;700&family=Dancing+Script:wght@700&display=swap');
 
-        /* === 修复1：暴力去除微信蓝框和长按菜单 === */
+        /* === 核心：去蓝框、防卡顿 === */
         * {
-            -webkit-tap-highlight-color: transparent !important; /* 强制去蓝框 */
-            -webkit-touch-callout: none; /* 禁用长按弹出菜单(如保存图片) */
-            -webkit-user-select: none; /* 禁止选中文字 */
+            -webkit-tap-highlight-color: transparent !important;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
             user-select: none;
             outline: none;
         }
-
-        /* 允许输入框可以输入文字 */
-        input.wish-input {
-            -webkit-user-select: auto !important;
-            user-select: auto !important;
-        }
+        /* 允许输入框交互 */
+        input.wish-input { -webkit-user-select: auto !important; user-select: auto !important; }
 
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #050505;
-            font-family: 'Noto Serif SC', serif;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #050505; font-family: 'Noto Serif SC', serif;
         }
 
-        ::-webkit-scrollbar { display: none; }
-
-        #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
         #intro-layer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            text-align: center;
-            transition: opacity 1s ease;
-            pointer-events: none;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 10; text-align: center; transition: opacity 1s ease; pointer-events: none;
         }
-
         .pulse-dot {
-            width: 12px;
-            height: 12px;
-            background-color: #fff;
-            border-radius: 50%;
-            margin: 0 auto 20px auto;
-            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.6);
+            width: 12px; height: 12px; background-color: #fff; border-radius: 50%;
+            margin: 0 auto 20px auto; box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.6);
             animation: pulse 2s infinite ease-in-out;
         }
-
-        .hint-text {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-            letter-spacing: 2px;
-            font-weight: 300;
-        }
+        .hint-text { color: rgba(255, 255, 255, 0.6); font-size: 14px; letter-spacing: 2px; font-weight: 300; }
 
         #name-layer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            z-index: 15;
-            opacity: 0;
-            text-align: center;
-            transition: opacity 1s ease, transform 1.5s ease;
-            pointer-events: none; 
-            cursor: pointer;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+            z-index: 15; opacity: 0; text-align: center; transition: opacity 1s ease, transform 1.5s ease;
+            pointer-events: none; cursor: pointer;
         }
-
-        #name-layer.visible {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-            pointer-events: auto; 
-        }
+        #name-layer.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
 
         .her-name {
-            font-family: 'Dancing Script', cursive;
-            font-size: 4rem;
-            color: transparent;
+            font-family: 'Dancing Script', cursive; font-size: 4rem; color: transparent;
             background: linear-gradient(to right, #ff9a9e, #fecfef, #a1c4fd);
-            -webkit-background-clip: text;
-            background-clip: text;
-            text-shadow: 0 0 30px rgba(255, 192, 203, 0.5);
-            margin: 0;
+            -webkit-background-clip: text; background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 192, 203, 0.5); margin: 0;
         }
-
-        .subtitle {
-            color: #fff;
-            margin-top: 10px;
-            font-size: 1.2rem;
-            font-weight: 300;
-            opacity: 0.8;
-        }
+        .subtitle { color: #fff; margin-top: 10px; font-size: 1.2rem; font-weight: 300; opacity: 0.8; }
 
         #wish-layer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 20;
-            text-align: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.8s ease;
-            width: 80%;
-            max-width: 400px;
-            transform: translate(-50%, -40%);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -40%);
+            z-index: 20; text-align: center; opacity: 0; pointer-events: none;
+            transition: all 0.8s ease; width: 80%; max-width: 400px;
         }
-
-        #wish-layer.active {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translate(-50%, -50%);
-        }
+        #wish-layer.active { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
 
         input.wish-input {
-            width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 30px;
-            padding: 15px 20px;
-            color: #fff;
-            font-size: 16px;
-            font-family: 'Noto Serif SC', serif;
-            text-align: center;
-            outline: none;
-            backdrop-filter: blur(5px);
-            margin-bottom: 20px;
-            box-sizing: border-box; 
-            transition: border-color 0.3s;
+            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 30px; padding: 15px 20px; color: #fff; font-size: 16px;
+            font-family: 'Noto Serif SC', serif; text-align: center; outline: none;
+            backdrop-filter: blur(5px); margin-bottom: 20px; box-sizing: border-box;
         }
-        
-        input.wish-input:focus {
-            border-color: rgba(161, 196, 253, 0.8);
-            background: rgba(255,255,255,0.1);
-        }
-        
-        input.wish-input::placeholder {
-            color: rgba(255,255,255,0.4);
-            letter-spacing: 1px;
-        }
-
         .submit-btn {
-            background: linear-gradient(to right, #a1c4fd, #c2e9fb);
-            border: none;
-            padding: 12px 35px;
-            color: #444;
-            border-radius: 25px;
-            font-family: 'Noto Serif SC', serif;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            letter-spacing: 2px;
-        }
-        .submit-btn:hover { 
-            transform: scale(1.05);
-            box-shadow: 0 0 15px rgba(161, 196, 253, 0.6);
+            background: linear-gradient(to right, #a1c4fd, #c2e9fb); border: none; padding: 12px 35px;
+            color: #444; border-radius: 25px; font-family: 'Noto Serif SC', serif; font-weight: bold;
         }
 
         #feedback-layer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 25;
-            width: 80%;
-            text-align: center;
-            color: #fff;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 1s ease;
-            line-height: 2;
-            font-weight: 300;
-            font-size: 1.1rem;
-            text-shadow: 0 0 10px rgba(161, 196, 253, 0.5);
-            cursor: pointer;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 25; width: 80%; text-align: center; color: #fff; opacity: 0;
+            pointer-events: none; transition: opacity 1s ease; line-height: 2;
+            font-weight: 300; font-size: 1.1rem; cursor: pointer;
         }
-        
-        #feedback-layer.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
+        #feedback-layer.active { opacity: 1; pointer-events: auto; }
 
         .modal {
-            position: absolute;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
-            color: #fff;
-            font-size: 0.9rem;
-            pointer-events: none;
-            opacity: 0;
-            transform: scale(0.8);
-            transition: all 0.3s ease;
-            z-index: 20;
-            white-space: nowrap;
+            position: absolute; padding: 10px 20px; background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px; color: #fff; font-size: 0.9rem; pointer-events: none;
+            opacity: 0; transform: scale(0.8); transition: all 0.3s ease; z-index: 20; white-space: nowrap;
         }
         .modal.active { opacity: 1; transform: scale(1); }
 
@@ -224,9 +93,9 @@
     </style>
 </head>
 <body>
-
-    <audio id="bgm" src="bgm.mp3" loop preload="auto" style="display:none;"></audio>
-
+    
+    <audio id="bgm" src="bgm.mp3?v=fix" loop preload="auto" style="display:none;"></audio>
+    
     <div id="canvas-container"></div>
 
     <div id="intro-layer">
@@ -252,9 +121,8 @@
     <div id="bubble-modal" class="modal"></div>
 
     <script>
-        // ================= 配置区域 =================
         const CONFIG = {
-            name: "Alice", // 这里改成她的名字
+            name: "Alice", 
             subtitle: "愿所有的美好，都恰逢其时", 
             wishes: [
                 "今日份的好心情正在派送 🚚",
@@ -281,7 +149,6 @@
 
         let interactionMode = 0; 
         let state = 'IDLE'; 
-
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         document.getElementById('canvas-container').appendChild(canvas);
@@ -289,6 +156,7 @@
         let particles = [];
         let bubbles = [];
         let musicPlayed = false;
+        let musicAttempting = false; // 防止重复触发
 
         function initCanvas() {
             width = window.innerWidth;
@@ -299,7 +167,6 @@
         window.addEventListener('resize', initCanvas);
         initCanvas();
 
-        // ================= 交互控制器 =================
         const nameLayer = document.getElementById('name-layer');
         const wishLayer = document.getElementById('wish-layer');
         const feedbackLayer = document.getElementById('feedback-layer');
@@ -307,4 +174,246 @@
         nameLayer.addEventListener('click', () => {
             if (interactionMode === 0) {
                 interactionMode = 1;
-                nameLayer.style.transform
+                nameLayer.style.transform = "translate(-50%, -50%) scale(1.1)";
+                setTimeout(() => nameLayer.style.transform = "translate(-50%, -50%) scale(1)", 200);
+                for(let i=0; i<5; i++) bubbles.push(new Bubble());
+            } else if (interactionMode === 1) {
+                interactionMode = 2;
+                nameLayer.classList.remove('visible');
+                wishLayer.classList.add('active');
+            }
+        });
+
+        window.submitWish = function() {
+            const input = document.querySelector('.wish-input');
+            if (input.value.trim() === "") return;
+            interactionMode = 3;
+            wishLayer.classList.remove('active'); 
+            feedbackLayer.classList.add('active'); 
+        };
+
+        window.resetCycle = function() {
+            interactionMode = 0;
+            feedbackLayer.classList.remove('active');
+            nameLayer.classList.add('visible');
+            document.querySelector('.wish-input').value = "";
+        };
+
+        class Particle {
+            constructor(type = 'bg') { this.reset(type); }
+            reset(type) {
+                this.type = type;
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 0.5;
+                this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+                this.alpha = Math.random() * 0.5 + 0.1;
+                if (type === 'bg') {
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                } else if (type === 'charge') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.max(width, height) * 0.8;
+                    this.x = width/2 + Math.cos(angle) * dist;
+                    this.y = height/2 + Math.sin(angle) * dist;
+                    this.size = Math.random() * 3 + 1;
+                }
+            }
+            update(isCharging) {
+                if (this.type === 'bg') {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if(this.x < 0 || this.x > width) this.vx *= -1;
+                    if(this.y < 0 || this.y > height) this.vy *= -1;
+                } else if (this.type === 'charge') {
+                    if (!isCharging) return;
+                    const dx = width/2 - this.x;
+                    const dy = height/2 - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const speed = 1500 / (dist + 1);
+                    const angle = Math.atan2(dy, dx);
+                    this.x += Math.cos(angle) * speed;
+                    this.y += Math.sin(angle) * speed;
+                    if (dist < 10) this.reset('charge');
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                ctx.fill();
+            }
+        }
+
+        class Bubble {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = height + 100; 
+                this.text = CONFIG.wishes[Math.floor(Math.random() * CONFIG.wishes.length)];
+                this.size = Math.random() * 15 + 10; 
+                this.speed = Math.random() * 1 + 0.8; 
+                this.active = true;
+                this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+                this.wobble = Math.random() * Math.PI * 2;
+                this.fadeCenterOffset = (Math.random() - 0.5) * 300; 
+            }
+            update() {
+                this.y -= this.speed;
+                this.wobble += 0.03;
+                this.x += Math.sin(this.wobble) * 0.5;
+                if (this.y < -100 && state === 'EXPLODED') this.reset();
+            }
+            draw() {
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(1, 'transparent');
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI*2);
+                ctx.fill();
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI*2);
+                ctx.fill();
+                if (interactionMode === 1) {
+                    const fadeCenter = (height / 2) + this.fadeCenterOffset;
+                    const distToCenter = Math.abs(this.y - fadeCenter);
+                    const fadeRange = 150; 
+                    let textAlpha = 1 - (distToCenter / fadeRange);
+                    textAlpha = Math.max(0, Math.min(1, textAlpha));
+                    if (textAlpha > 0.05) {
+                        ctx.save();
+                        ctx.globalAlpha = textAlpha;
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "300 16px 'Noto Serif SC'"; 
+                        ctx.textAlign = "center";
+                        ctx.shadowColor = this.color;
+                        ctx.shadowBlur = 10;
+                        ctx.fillText(this.text, this.x, this.y - 25);
+                        ctx.restore();
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < 50; i++) particles.push(new Particle('bg'));
+        let chargeParticles = [];
+        for (let i = 0; i < 150; i++) chargeParticles.push(new Particle('charge'));
+
+        let isHolding = false;
+        let holdStart = 0;
+
+        // ================= 安全播放逻辑 =================
+        function tryPlayMusic() {
+            if (musicPlayed || musicAttempting) return;
+            musicAttempting = true; // 锁住，防止重复调用卡死
+
+            const audio = document.getElementById('bgm');
+            audio.volume = 0; 
+            
+            // 尝试播放，如果失败直接静默捕获，绝对不弹窗
+            audio.play().then(() => {
+                musicPlayed = true;
+                musicAttempting = false;
+                // 渐入
+                let vol = 0;
+                const t = setInterval(() => {
+                    if(vol<0.8) { vol+=0.05; audio.volume=Math.min(vol,0.8); }
+                    else clearInterval(t);
+                }, 100);
+            }).catch(e => {
+                musicAttempting = false;
+                console.log("Music failed silently"); // 仅在控制台记录
+            });
+        }
+
+        const startInteraction = (e) => {
+            if (state === 'EXPLODED') {
+                if (interactionMode === 0) checkBubbleClick(e);
+                return;
+            }
+            
+            tryPlayMusic();
+
+            e.preventDefault();
+            isHolding = true;
+            holdStart = Date.now();
+            document.getElementById('intro-layer').style.opacity = 0;
+            state = 'CHARGING';
+        };
+
+        const endInteraction = () => {
+            if (state === 'EXPLODED') return;
+            isHolding = false;
+            if (Date.now() - holdStart > 1500) {
+                triggerExplosion();
+            } else {
+                state = 'IDLE';
+                document.getElementById('intro-layer').style.opacity = 1;
+            }
+        };
+
+        window.addEventListener('mousedown', startInteraction);
+        window.addEventListener('touchstart', startInteraction, {passive: false});
+        window.addEventListener('mouseup', endInteraction);
+        window.addEventListener('touchend', endInteraction);
+
+        // 微信专属修正
+        document.addEventListener('WeixinJSBridgeReady', function () {
+            const audio = document.getElementById('bgm');
+            audio.load(); 
+            tryPlayMusic();
+        }, false);
+
+        function triggerExplosion() {
+            state = 'EXPLODED';
+            if (navigator.vibrate) navigator.vibrate(200);
+            document.getElementById('name-layer').classList.add('visible');
+            setInterval(() => { if (bubbles.length < 20) bubbles.push(new Bubble()); }, 800);
+        }
+
+        function checkBubbleClick(e) {
+            let cx, cy;
+            if(e.type === 'touchstart') {
+                cx = e.touches[0].clientX; cy = e.touches[0].clientY;
+            } else {
+                cx = e.clientX; cy = e.clientY;
+            }
+            for (let b of bubbles) {
+                const dist = Math.sqrt((cx - b.x)**2 + (cy - b.y)**2);
+                if (dist < 50) {
+                    showModal(b.text, cx, cy);
+                    break; 
+                }
+            }
+        }
+
+        let modalTimeout;
+        function showModal(text, x, y) {
+            modal.textContent = text;
+            modal.style.left = x + 'px';
+            modal.style.top = (y - 40) + 'px';
+            modal.classList.add('active');
+            clearTimeout(modalTimeout);
+            modalTimeout = setTimeout(() => modal.classList.remove('active'), 2000);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            if (state === 'CHARGING') {
+                chargeParticles.forEach(p => { p.update(true); p.draw(); });
+            }
+            if (state === 'EXPLODED') {
+                bubbles.forEach(b => { b.update(); b.draw(); });
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
