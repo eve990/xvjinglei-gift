@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>For You</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;700&family=Dancing+Script:wght@700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Noto Serif SC', serif;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 0. 引导层 */
+        #intro-layer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            transition: opacity 1s ease;
+            pointer-events: none;
+        }
+
+        .pulse-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #fff;
+            border-radius: 50%;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.6);
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        .hint-text {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            letter-spacing: 2px;
+            font-weight: 300;
+        }
+
+        /* 1. 名字层 (核心交互入口) */
+        #name-layer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            z-index: 15;
+            opacity: 0;
+            text-align: center;
+            transition: opacity 1s ease, transform 1.5s ease; /* 优化过渡时间 */
+            pointer-events: none; 
+            cursor: pointer;
+        }
+
+        #name-layer.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto; 
+        }
+
+        .her-name {
+            font-family: 'Dancing Script', cursive;
+            font-size: 4rem;
+            color: transparent;
+            background: linear-gradient(to right, #ff9a9e, #fecfef, #a1c4fd);
+            -webkit-background-clip: text;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 192, 203, 0.5);
+            margin: 0;
+            user-select: none;
+        }
+
+        .subtitle {
+            color: #fff;
+            margin-top: 10px;
+            font-size: 1.2rem;
+            font-weight: 300;
+            opacity: 0.8;
+            user-select: none;
+        }
+
+        /* 2. 许愿输入框层 (默认隐藏) */
+        #wish-layer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.8s ease; /* 淡入效果 */
+            width: 80%;
+            max-width: 400px;
+            transform: translate(-50%, -40%); /* 稍微有点位移效果 */
+        }
+
+        #wish-layer.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%); /* 也就是归位 */
+        }
+
+        input.wish-input {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 30px;
+            padding: 15px 20px;
+            color: #fff;
+            font-size: 16px;
+            font-family: 'Noto Serif SC', serif;
+            text-align: center;
+            outline: none;
+            backdrop-filter: blur(5px);
+            margin-bottom: 20px;
+            box-sizing: border-box; /* 修复宽度溢出 */
+            transition: border-color 0.3s;
+        }
+        
+        input.wish-input:focus {
+            border-color: rgba(161, 196, 253, 0.8);
+            background: rgba(255,255,255,0.1);
+        }
+        
+        input.wish-input::placeholder {
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 1px;
+        }
+
+        .submit-btn {
+            background: linear-gradient(to right, #a1c4fd, #c2e9fb);
+            border: none;
+            padding: 12px 35px;
+            color: #444;
+            border-radius: 25px;
+            font-family: 'Noto Serif SC', serif;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            letter-spacing: 2px;
+        }
+        .submit-btn:hover { 
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(161, 196, 253, 0.6);
+        }
+
+        /* 3. 反馈信息层 */
+        #feedback-layer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 25;
+            width: 80%;
+            text-align: center;
+            color: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease;
+            line-height: 2;
+            font-weight: 300;
+            font-size: 1.1rem;
+            text-shadow: 0 0 10px rgba(161, 196, 253, 0.5);
+            cursor: pointer;
+        }
+        
+        #feedback-layer.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 弹窗样式 (Phase 1 使用) */
+        .modal {
+            position: absolute;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.9rem;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s ease;
+            z-index: 20;
+            white-space: nowrap;
+        }
+        .modal.active { opacity: 1; transform: scale(1); }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.5); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bgm" src="CMJ - 所念皆星河.mp3" loop preload="auto" style="display:none;"></audio>
+
+    <div id="canvas-container"></div>
+
+    <div id="intro-layer">
+        <div class="pulse-dot"></div>
+        <div class="hint-text">长按唤醒星系</div>
+    </div>
+
+    <div id="name-layer">
+        <h1 class="her-name">Happy Birthday</h1>
+        <div class="subtitle">所念皆星河，星河皆是你</div>
+    </div>
+
+    <div id="wish-layer">
+        <input type="text" class="wish-input" placeholder="在这里写下你的愿望..." maxlength="30">
+        <button class="submit-btn" onclick="submitWish()">发送愿望</button>
+    </div>
+
+    <div id="feedback-layer" onclick="resetCycle()">
+        <!--<p>你的愿望已被发往某个遥远的星系的星球上，<br>这多年之后的这个星球会再次来到你的身边。</p>-->
+        <p>你的心愿已寄往亿万光年外的星系。<br>它将穿越漫长的时空，在未来的某一天，带着宇宙的回响奔你而来。</p>
+        <!--<p>你的愿望已被银河悄悄收藏<br>请给时间一点时间，它正在酝酿惊喜，准备在最好的时刻回到你身边</p>-->
+        <div style="font-size: 12px; opacity: 0.5; margin-top: 20px;">( 点击任意处返回星系 )</div>
+    </div>
+
+    <div id="bubble-modal" class="modal"></div>
+
+    <script>
+        // ================= 配置区域 =================
+        /*
+        const CONFIG = {
+            name: "Alice", 
+            subtitle: "生日快乐，我的女孩", 
+            wishes: [
+                "愿你眼中有光，心中有爱 ✨",
+                "今天的你比昨天更可爱 🌹",
+                "想把所有的温柔都给你 ☁️",
+                "记得按时吃饭，照顾好自己 🍱",
+                "无论发生什么，我都在 ❤️",
+                "星河滚烫，你是人间理想 🌌",
+                "每天都要开心哦 😊",
+                "平安喜乐，万事胜意 🏮",
+                "做自己的光，不需要太亮 🌟"
+            ],
+            colors: ["#ff9a9e", "#fecfef", "#a1c4fd", "#84fab0"]
+        };
+        */
+        const CONFIG = {
+                    name: "Alice", // 这里改成她的名字
+                    subtitle: "愿所有的美好，都恰逢其时", // 浪漫且不突兀，适合任何普通日子
+                    wishes: [
+                        "今日份的好心情正在派送 🚚",
+                        "生活明朗，万物可爱 🌻",
+                        "愿你自在如风，内心丰盈 🍃",
+                        "保持热爱，奔赴山海 🌊",
+                        "别慌，月亮也正在大海某处迷茫 🌙",
+                        "做自己的光，不需要太亮 ✨",
+                        "愿你被这个世界温柔以待 🎀",
+                        "去发光，而不是被照亮 🌟",
+                        "慢慢理解世界，慢慢更新自己 🧩",
+                        "即使是普通的一天，也要闪闪发光 🌠",
+                        "祝你快乐，不止今天 🎈",
+                        "所有的运气，都在路上 🍀",
+                        "愿你眼角带笑，月色不染眉梢 🌙",
+                        "你值得这世间所有的温柔 ☁️"
+                    ],
+                    colors: ["#ff9a9e", "#fecfef", "#a1c4fd", "#84fab0"]
+                };
+        document.querySelector('.her-name').textContent = CONFIG.name;
+        document.querySelector('.subtitle').textContent = CONFIG.subtitle;
+        const modal = document.getElementById('bubble-modal');
+
+        // ================= 全局状态 =================
+        // 0: 刚爆发 (手动点星星)
+        // 1: 自动模式 (星星自己显字)
+        // 2: 许愿模式 (输入框)
+        // 3: 愿望发送完毕
+        let interactionMode = 0; 
+        let state = 'IDLE'; // IDLE, CHARGING, EXPLODED
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        document.getElementById('canvas-container').appendChild(canvas);
+        let width, height;
+        let particles = [];
+        let bubbles = [];
+        let musicPlayed = false;
+
+        function initCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', initCanvas);
+        initCanvas();
+
+        // ================= 交互控制器 =================
+        const nameLayer = document.getElementById('name-layer');
+        const wishLayer = document.getElementById('wish-layer');
+        const feedbackLayer = document.getElementById('feedback-layer');
+
+        // 点击名字的逻辑
+        nameLayer.addEventListener('click', () => {
+            if (interactionMode === 0) {
+                // Mode 0 -> 1: 激活自动星星
+                interactionMode = 1;
+                // 给名字一个微小的反馈动画，表示状态变了
+                nameLayer.style.transform = "translate(-50%, -50%) scale(1.1)";
+                setTimeout(() => nameLayer.style.transform = "translate(-50%, -50%) scale(1)", 200);
+                
+                // 补充一点泡泡
+                for(let i=0; i<5; i++) bubbles.push(new Bubble());
+                
+            } else if (interactionMode === 1) {
+                // Mode 1 -> 2: 进入许愿
+                interactionMode = 2;
+                
+                // 关键：隐藏名字
+                nameLayer.classList.remove('visible');
+                
+                // 显示许愿框
+                wishLayer.classList.add('active');
+            }
+        });
+
+        window.submitWish = function() {
+            const input = document.querySelector('.wish-input');
+            if (input.value.trim() === "") return;
+
+            interactionMode = 3;
+            wishLayer.classList.remove('active'); // 隐藏输入框
+            feedbackLayer.classList.add('active'); // 显示反馈文案
+        };
+
+        window.resetCycle = function() {
+            interactionMode = 0;
+            feedbackLayer.classList.remove('active');
+            // 重新显示名字
+            nameLayer.classList.add('visible');
+            document.querySelector('.wish-input').value = "";
+        };
+
+        // ================= 粒子系统 =================
+        class Particle {
+            constructor(type = 'bg') { this.reset(type); }
+            reset(type) {
+                this.type = type;
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 0.5;
+                this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+                this.alpha = Math.random() * 0.5 + 0.1;
+                if (type === 'bg') {
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                } else if (type === 'charge') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.max(width, height) * 0.8;
+                    this.x = width/2 + Math.cos(angle) * dist;
+                    this.y = height/2 + Math.sin(angle) * dist;
+                    this.size = Math.random() * 3 + 1;
+                }
+            }
+            update(isCharging) {
+                if (this.type === 'bg') {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if(this.x < 0 || this.x > width) this.vx *= -1;
+                    if(this.y < 0 || this.y > height) this.vy *= -1;
+                } else if (this.type === 'charge') {
+                    if (!isCharging) return;
+                    const dx = width/2 - this.x;
+                    const dy = height/2 - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const speed = 1500 / (dist + 1);
+                    const angle = Math.atan2(dy, dx);
+                    this.x += Math.cos(angle) * speed;
+                    this.y += Math.sin(angle) * speed;
+                    if (dist < 10) this.reset('charge');
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                ctx.fill();
+            }
+        }
+
+        class Bubble {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = height + 100; 
+                this.text = CONFIG.wishes[Math.floor(Math.random() * CONFIG.wishes.length)];
+                this.size = Math.random() * 15 + 10; 
+                this.speed = Math.random() * 1 + 0.8; 
+                this.active = true;
+                this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+                this.wobble = Math.random() * Math.PI * 2;
+                this.fadeCenterOffset = (Math.random() - 0.5) * 300; 
+            }
+            update() {
+                this.y -= this.speed;
+                this.wobble += 0.03;
+                this.x += Math.sin(this.wobble) * 0.5;
+                if (this.y < -100 && state === 'EXPLODED') this.reset();
+            }
+            draw() {
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(1, 'transparent');
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI*2);
+                ctx.fill();
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI*2);
+                ctx.fill();
+
+                if (interactionMode === 1) {
+                    const fadeCenter = (height / 2) + this.fadeCenterOffset;
+                    const distToCenter = Math.abs(this.y - fadeCenter);
+                    const fadeRange = 150; 
+                    
+                    let textAlpha = 1 - (distToCenter / fadeRange);
+                    textAlpha = Math.max(0, Math.min(1, textAlpha));
+
+                    if (textAlpha > 0.05) {
+                        ctx.save();
+                        ctx.globalAlpha = textAlpha;
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "300 16px 'Noto Serif SC'"; 
+                        ctx.textAlign = "center";
+                        ctx.shadowColor = this.color;
+                        ctx.shadowBlur = 10;
+                        ctx.fillText(this.text, this.x, this.y - 25);
+                        ctx.restore();
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < 50; i++) particles.push(new Particle('bg'));
+        let chargeParticles = [];
+        for (let i = 0; i < 150; i++) chargeParticles.push(new Particle('charge'));
+
+        let isHolding = false;
+        let holdStart = 0;
+
+        const startInteraction = (e) => {
+            if (state === 'EXPLODED') {
+                if (interactionMode === 0) checkBubbleClick(e);
+                return;
+            }
+            if (!musicPlayed) {
+                const audio = document.getElementById('bgm');
+                audio.volume = 0; 
+                audio.play().then(() => {
+                    musicPlayed = true;
+                    let vol = 0;
+                    const t = setInterval(() => {
+                        if(vol<0.8) { vol+=0.05; audio.volume=Math.min(vol,0.8); }
+                        else clearInterval(t);
+                    }, 100);
+                }).catch(()=>{});
+            }
+            e.preventDefault();
+            isHolding = true;
+            holdStart = Date.now();
+            document.getElementById('intro-layer').style.opacity = 0;
+            state = 'CHARGING';
+        };
+
+        const endInteraction = () => {
+            if (state === 'EXPLODED') return;
+            isHolding = false;
+            if (Date.now() - holdStart > 1500) {
+                triggerExplosion();
+            } else {
+                state = 'IDLE';
+                document.getElementById('intro-layer').style.opacity = 1;
+            }
+        };
+
+        window.addEventListener('mousedown', startInteraction);
+        window.addEventListener('touchstart', startInteraction, {passive: false});
+        window.addEventListener('mouseup', endInteraction);
+        window.addEventListener('touchend', endInteraction);
+
+        function triggerExplosion() {
+            state = 'EXPLODED';
+            if (navigator.vibrate) navigator.vibrate(200);
+            document.getElementById('name-layer').classList.add('visible');
+            setInterval(() => { if (bubbles.length < 20) bubbles.push(new Bubble()); }, 800);
+        }
+
+        function checkBubbleClick(e) {
+            let cx, cy;
+            if(e.type === 'touchstart') {
+                cx = e.touches[0].clientX; cy = e.touches[0].clientY;
+            } else {
+                cx = e.clientX; cy = e.clientY;
+            }
+            for (let b of bubbles) {
+                const dist = Math.sqrt((cx - b.x)**2 + (cy - b.y)**2);
+                if (dist < 50) {
+                    showModal(b.text, cx, cy);
+                    break; 
+                }
+            }
+        }
+
+        let modalTimeout;
+        function showModal(text, x, y) {
+            modal.textContent = text;
+            modal.style.left = x + 'px';
+            modal.style.top = (y - 40) + 'px';
+            modal.classList.add('active');
+            clearTimeout(modalTimeout);
+            modalTimeout = setTimeout(() => modal.classList.remove('active'), 2000);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            
+            if (state === 'CHARGING') {
+                chargeParticles.forEach(p => { p.update(true); p.draw(); });
+            }
+            
+            if (state === 'EXPLODED') {
+                bubbles.forEach(b => { b.update(); b.draw(); });
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
