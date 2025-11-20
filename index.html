@@ -17,6 +17,12 @@
             font-family: 'Noto Serif SC', serif;
         }
 
+        /* === 新增：去掉所有元素的点击蓝色高亮 === */
+        * {
+            -webkit-tap-highlight-color: transparent; /* 关键代码 */
+            outline: none; /* 去掉聚焦时的轮廓线 */
+        }
+        
         ::-webkit-scrollbar { display: none; }
 
         #canvas-container {
